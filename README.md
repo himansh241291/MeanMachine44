@@ -32,13 +32,13 @@ The first implementation will start with the most deterministic common mechanism
 Daily data
   -> SMA44
   -> rising-MA44 filter
-  -> qualifying bullish setup candle near MA44
+  -> qualifying setup concepts (still partially undefined)
   -> pending BUY at setup-candle HIGH
   -> trigger when a later market price crosses that HIGH
   -> initial stop reference at setup-candle LOW
 ```
 
-The exact definitions of `rising`, `near MA44`, `qualifying bullish candle`, execution semantics, targets, position sizing, and several pattern-specific rules remain versioned research parameters until formally validated.
+Undefined setup concepts remain research work and are not silently converted into trading rules.
 
 ## Repository layout
 
@@ -52,7 +52,6 @@ MeanMachine44/
 ├── src/
 │   └── meanmachine44/      # Application and strategy code
 ├── tests/                  # Deterministic unit/replay tests
-├── scripts/                # Reproducible local commands
 ├── .github/workflows/      # CI
 ├── pyproject.toml
 └── README.md
@@ -85,8 +84,6 @@ git add .
 git commit -m "<meaningful change>"
 git push
 ```
-
-Use feature branches for substantial changes and merge reviewed work into `main`.
 
 ## Research lifecycle
 
