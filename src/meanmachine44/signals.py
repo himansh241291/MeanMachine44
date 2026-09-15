@@ -14,4 +14,4 @@ def buy_setup(high: float, low: float) -> BuySetup:
 
 
 def triggered(high: float, price: float) -> bool:
-    return price >= high
+    return price > high

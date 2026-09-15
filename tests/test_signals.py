@@ -8,8 +8,8 @@ def test_buy_setup():
 
 
 def test_trigger():
-    assert triggered(103, 103)
-    assert triggered(103, 104)
+    assert not triggered(103, 103)
+    assert triggered(103, 103.01)
     assert not triggered(103, 102.99)
 
 
