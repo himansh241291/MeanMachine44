@@ -76,7 +76,7 @@ Source classification: **falling moving average + support**.
 
 The source describes this as relatively rare and indicates a preference for rising-MA setups.
 
-**Implementation status:** excluded from deterministic V1. This is still BUY-side conceptually, but it is not part of the first testable ruleset.
+**Implementation status:** a falling-MA direction primitive may label research context only. No Type 3 setup detector or trade rule is enabled because support remains undefined.
 
 ## 6. Rising SMA44 + support / bullish price action
 

@@ -9,3 +9,10 @@ def rising(ma: list[float | None], minimum: int = 3) -> list[bool]:
             window[j] > window[j - 1] for j in range(1, minimum)
         )
     return out
+
+
+def falling(ma: list[float | None]) -> list[bool]:
+    return [
+        i > 0 and ma[i] is not None and ma[i - 1] is not None and ma[i] < ma[i - 1]
+        for i in range(len(ma))
+    ]
