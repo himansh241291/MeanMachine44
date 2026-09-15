@@ -150,9 +150,9 @@ The source describes an advanced setup using:
 - lower-timeframe confirmation/entry;
 - BUY above the bullish trigger high and stop below its low.
 
-The exact ATR exhaustion calculation, reference price, synchronization between daily and lower timeframe data, and entry timing are `UNDEFINED`.
+The source shows ATR exhaustion by subtracting the ATR from a demonstration reference price: the concrete example uses the next day's open, while an earlier illustration uses the prior close. The unique reference-price rule, synchronization between daily and lower timeframe data, and entry timing are `UNDEFINED`.
 
-This setup is excluded from deterministic V1.
+V1 includes only reusable ATR(14)-SMA, lower-boundary, and boundary-reached primitives. It does not select the reference price or create an ATR-based trade signal.
 
 ## 10. Historical MA44 behaviour
 

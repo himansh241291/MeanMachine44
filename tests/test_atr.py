@@ -1,4 +1,13 @@
-from meanmachine44.atr import atr_sma, true_range
+import pytest
+
+from meanmachine44.atr import (
+    atr14_sma,
+    atr_sma,
+    lower_atr_boundary,
+    lower_atr_exhausted,
+    true_range,
+)
+from meanmachine44.candles import Candle
 
 
 def test_true_range():
@@ -8,3 +17,19 @@ def test_true_range():
 
 def test_atr_sma():
     assert atr_sma([1, 2, 3], 2) == [None, 1.5, 2.5]
+
+
+def test_atr14_sma_uses_ohlc():
+    candles = [Candle(100, 110, 100, 105)] * 14
+    assert atr14_sma(candles) == [None] * 13 + [10]
+
+
+def test_lower_atr_exhaustion():
+    assert lower_atr_boundary(438, 10) == 428
+    assert lower_atr_exhausted(438, 427.35, 10)
+    assert not lower_atr_exhausted(438, 428.01, 10)
+
+
+def test_negative_atr_is_invalid():
+    with pytest.raises(ValueError):
+        lower_atr_boundary(438, -1)
