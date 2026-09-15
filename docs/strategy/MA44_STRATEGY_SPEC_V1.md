@@ -50,6 +50,8 @@ The source repeatedly describes the following execution mechanism:
 
 For the first software implementation, we will represent this as a pending BUY trigger rather than immediately creating a trade when the setup candle closes.
 
+The pending trigger can be evaluated only on a bar later than the setup bar.
+
 Exact order semantics when price gaps above the trigger high are `UNDEFINED`.
 
 ## 5. BUY setup families in source

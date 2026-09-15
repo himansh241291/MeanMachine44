@@ -15,3 +15,7 @@ def buy_setup(high: float, low: float) -> BuySetup:
 
 def triggered(high: float, price: float) -> bool:
     return price > high
+
+
+def triggered_later(high: float, setup_bar: int, price_bar: int, price: float) -> bool:
+    return price_bar > setup_bar and triggered(high, price)
