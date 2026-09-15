@@ -15,8 +15,18 @@ def test_true_range():
     assert true_range(110, 100, 120) == 20
 
 
+def test_true_range_rejects_inverted_range():
+    with pytest.raises(ValueError):
+        true_range(99, 100, 105)
+
+
 def test_atr_sma():
     assert atr_sma([1, 2, 3], 2) == [None, 1.5, 2.5]
+
+
+def test_atr_sma_rejects_negative_true_range():
+    with pytest.raises(ValueError):
+        atr_sma([1, -1, 3], 2)
 
 
 def test_atr14_sma_uses_ohlc():
