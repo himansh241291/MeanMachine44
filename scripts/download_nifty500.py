@@ -25,6 +25,7 @@ def main() -> None:
     parser.add_argument("--end", required=True)
     parser.add_argument("--output", default="data/raw/nifty500_daily.csv")
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--chunk-size", type=int, default=25)
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[1]
@@ -36,34 +37,62 @@ def main() -> None:
     symbols = load_constituents(response.content)
     if args.limit:
         symbols = symbols[:args.limit]
+    if not symbols:
+        raise SystemExit("No NIFTY 500 symbols returned")
 
     frames = []
-    for symbol in symbols:
-        df = yf.download(
-            f"{symbol}.NS",
-            start=args.start,
-            end=args.end,
-            interval="1d",
-            auto_adjust=False,
-            progress=False,
-            threads=False,
-        )
-        if df.empty:
+    for start in range(0, len(symbols), args.chunk_size):
+        chunk = symbols[start:start + args.chunk_size]
+        tickers = [f"{symbol}.NS" for symbol in chunk]
+        try:
+            data = yf.download(
+                tickers,
+                start=args.start,
+                end=args.end,
+                interval="1d",
+                auto_adjust=False,
+                progress=False,
+                threads=True,
+                group_by="ticker",
+            )
+        except Exception as exc:
+            print(f"chunk failed: {chunk[0]}..{chunk[-1]}: {exc}")
             continue
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        x = df[["Open", "High", "Low", "Close"]].dropna().copy()
-        x["timestamp"] = pd.to_datetime(x.index, utc=True)
-        x["symbol"] = symbol
-        x["timeframe"] = "1d"
-        x = x.rename(columns={"Open": "open", "High": "high", "Low": "low", "Close": "close"})
-        frames.append(x[["timestamp", "symbol", "timeframe", "open", "high", "low", "close"]])
+
+        if data.empty:
+            print(f"chunk empty: {chunk[0]}..{chunk[-1]}")
+            continue
+
+        for symbol in chunk:
+            ticker = f"{symbol}.NS"
+            try:
+                if len(tickers) == 1:
+                    df = data.copy()
+                else:
+                    if ticker not in data.columns.get_level_values(0):
+                        print(f"no data: {symbol}")
+                        continue
+                    df = data[ticker].copy()
+                if df.empty:
+                    print(f"no data: {symbol}")
+                    continue
+                x = df[["Open", "High", "Low", "Close"]].dropna().copy()
+                x["timestamp"] = pd.to_datetime(x.index, utc=True)
+                x["symbol"] = symbol
+                x["timeframe"] = "1d"
+                x = x.rename(columns={"Open": "open", "High": "high", "Low": "low", "Close": "close"})
+                frames.append(x[["timestamp", "symbol", "timeframe", "open", "high", "low", "close"]])
+            except (KeyError, ValueError) as exc:
+                print(f"skip {symbol}: {exc}")
+
+        print(f"processed={min(start + len(chunk), len(symbols))}/{len(symbols)}")
 
     if not frames:
         raise SystemExit("No historical data returned")
 
-    pd.concat(frames, ignore_index=True).sort_values(["symbol", "timestamp"]).to_csv(output, index=False)
-    print(f"symbols={len(symbols)} rows={sum(len(frame) for frame in frames)} output={output}")
+    result = pd.concat(frames, ignore_index=True).sort_values(["symbol", "timestamp"])
+    result.to_csv(output, index=False)
+    print(f"symbols={result['symbol'].nunique()} rows={len(result)} output={output}")
 
 
 if __name__ == "__main__":
