@@ -2,70 +2,66 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from meanmachine44.candles import Candle
-from meanmachine44.indicators import sma44
-from meanmachine44.ma44 import rising
-from meanmachine44.type1 import type1_candidate
 from scripts.scan_type1 import find_type1_setups
 
 
-def test_find_type1_setups_records_later_trigger():
+def warmup(start: datetime) -> list[dict]:
     rows = []
-    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    for i in range(43):
-        close = 100 + i * 0.2
+    for i in range(44):
+        close = 100 + i
         rows.append({
             "timestamp": start + timedelta(days=i),
             "symbol": "TEST",
-            "open": close - 0.8,
-            "high": close + 0.8,
-            "low": close - 1.0,
+            "open": close - 1,
+            "high": close + 1,
+            "low": close - 1,
             "close": close,
         })
-    rows.append({
-        "timestamp": start + timedelta(days=43),
-        "symbol": "TEST",
-        "open": 108,
-        "high": 110,
-        "low": 107,
-        "close": 109,
-    })
+    return rows
+
+
+def test_find_type1_setups_records_later_trigger():
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    rows = warmup(start)
     rows.append({
         "timestamp": start + timedelta(days=44),
         "symbol": "TEST",
-        "open": 108,
-        "high": 111,
-        "low": 107,
-        "close": 110,
+        "open": 144,
+        "high": 148,
+        "low": 120,
+        "close": 145,
     })
+    rows.append({
+        "timestamp": start + timedelta(days=45),
+        "symbol": "TEST",
+        "open": 145,
+        "high": 149,
+        "low": 144,
+        "close": 148,
+    })
+
     result = find_type1_setups(pd.DataFrame(rows))
+
     assert len(result) == 1
-    assert result[0]["setup_date"] == (start + timedelta(days=43)).isoformat()
-    assert result[0]["trigger_date"] is not None
-    assert result[0]["entry"] == 110.0
-    assert result[0]["stop"] == 107.0
+    assert result[0]["setup_date"] == (start + timedelta(days=44)).isoformat()
+    assert result[0]["trigger_date"] == (start + timedelta(days=45)).isoformat()
+    assert result[0]["entry"] == 148.0
+    assert result[0]["stop"] == 120.0
 
 
 def test_find_type1_setups_does_not_trigger_on_setup_bar():
-    rows = []
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    for i in range(43):
-        close = 100 + i * 0.2
-        rows.append({
-            "timestamp": start + timedelta(days=i),
-            "symbol": "TEST",
-            "open": close - 0.8,
-            "high": close + 0.8,
-            "low": close - 1.0,
-            "close": close,
-        })
+    rows = warmup(start)
     rows.append({
-        "timestamp": start + timedelta(days=43),
+        "timestamp": start + timedelta(days=44),
         "symbol": "TEST",
-        "open": 108,
-        "high": 110,
-        "low": 107,
-        "close": 109,
+        "open": 144,
+        "high": 148,
+        "low": 120,
+        "close": 145,
     })
+
     result = find_type1_setups(pd.DataFrame(rows))
+
+    assert len(result) == 1
     assert result[0]["trigger_date"] is None
