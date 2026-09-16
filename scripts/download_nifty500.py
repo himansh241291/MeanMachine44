@@ -16,7 +16,8 @@ def load_constituents(data: bytes) -> list[str]:
     frame = pd.read_csv(io.BytesIO(data))
     if not REQUIRED.issubset(frame.columns):
         raise ValueError("NIFTY 500 CSV must contain Symbol")
-    return sorted(frame["Symbol"].dropna().astype(str).str.strip().unique())
+    symbols = sorted(frame["Symbol"].dropna().astype(str).str.strip().unique())
+    return [symbol for symbol in symbols if "DUMMY" not in symbol.upper()]
 
 
 def main() -> None:
