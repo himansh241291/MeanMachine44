@@ -17,15 +17,17 @@ def frame():
     return pd.DataFrame(rows)
 
 
-def test_backtest_records_first_target_after_trigger():
+def test_backtest_records_target_per_multiple():
     result = backtest(frame(), "ma_touch_reclaim", horizon=20)
-    assert len(result) == 1
-    assert result[0]["outcome"] == "1R"
-    assert result[0]["r"] == 1.0
+    assert len(result) == 3
+    one_r = next(row for row in result if row["target_multiple"] == 1)
+    assert one_r["outcome"] == "TARGET"
+    assert one_r["r"] == 1.0
 
 
 def test_backtest_has_triggered_entry_and_stop_geometry():
     result = backtest(frame(), "ma_touch_reclaim", horizon=20)
-    assert result[0]["entry"] == 151
-    assert result[0]["stop"] == 120
-    assert result[0]["risk"] == 31
+    one_r = next(row for row in result if row["target_multiple"] == 1)
+    assert one_r["entry"] == 151
+    assert one_r["stop"] == 120
+    assert one_r["risk"] == 31
