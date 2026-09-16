@@ -13,6 +13,8 @@ class TriggerEvent:
 
 
 def first_trigger(bars: list[MarketBar], setup_bar: int, setup: BuySetup) -> TriggerEvent | None:
+    if setup_bar < 0 or setup_bar >= len(bars):
+        raise IndexError("setup_bar is outside bars")
     for i in range(setup_bar + 1, len(bars)):
         if bars[i].high > setup.entry:
             return TriggerEvent(setup_bar, i, setup.entry, setup.stop)
