@@ -1,8 +1,15 @@
+import importlib.util
 from pathlib import Path
 
 import pandas as pd
 
-from scripts.report_nifty500_scan import main
+
+SCRIPT = Path(__file__).parents[1] / "scripts" / "report_nifty500_scan.py"
+SPEC = importlib.util.spec_from_file_location("report_nifty500_scan", SCRIPT)
+MODULE = importlib.util.module_from_spec(SPEC)
+assert SPEC.loader is not None
+SPEC.loader.exec_module(MODULE)
+main = MODULE.main
 
 
 def test_report_writes_candidate_metrics(tmp_path, monkeypatch):
