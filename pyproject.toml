@@ -9,6 +9,7 @@ requires-python = ">=3.10"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+data = ["pandas>=2.0", "requests>=2.31", "yfinance>=0.2"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
