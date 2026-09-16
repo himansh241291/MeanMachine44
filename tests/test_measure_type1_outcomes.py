@@ -17,11 +17,27 @@ def frame():
 
 
 def test_measure_counts_later_trigger_only():
-    result = measure(frame(), "ma_touch_reclaim")
+    result = measure(frame(), "ma_touch_reclaim", horizon=20)
     assert result["setups"] == 1
     assert result["triggered"] == 1
     assert result["untriggered"] == 0
     assert result["trigger_rate_pct"] == 100.0
+    assert result["median_days"] == 1.0
+
+
+def test_measure_horizon_can_miss_late_trigger():
+    result = measure(frame(), "ma_touch_reclaim", horizon=1)
+    assert result["setups"] == 1
+    assert result["triggered"] == 1
+
+
+def test_measure_rejects_invalid_horizon():
+    try:
+        measure(frame(), "ma_touch_reclaim", horizon=0)
+    except ValueError as exc:
+        assert "horizon" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
 
 
 def test_measure_rejects_unknown_variant():
