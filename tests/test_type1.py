@@ -9,4 +9,4 @@ def test_type1_candidate_requires_rising_ma_and_reclaim():
 def test_type1_candidate_rejects_non_bullish_or_non_rising():
     assert not type1_candidate(Candle(104, 106, 100, 102), 103, True)
     assert not type1_candidate(Candle(100, 106, 98, 104), 102, False)
-    assert not type1_candidate(Candle(100, 104, 103, 101), 102, True)
+    assert not type1_candidate(Candle(100, 104, 99, 101), 102, True)
