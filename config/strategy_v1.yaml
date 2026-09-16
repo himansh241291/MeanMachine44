@@ -1,0 +1,17 @@
+strategy: MA44
+version: 1
+side: buy
+ma:
+  type: SMA
+  period: 44
+  source: close
+
+# Setup definitions are intentionally not enabled until formalized.
+setup:
+  support: undefined
+  near_ma44: undefined
+  bullish_candle: undefined
+
+entry:
+  trigger: setup_high
+  stop: setup_low

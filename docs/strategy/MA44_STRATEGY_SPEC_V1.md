@@ -50,6 +50,8 @@ The source repeatedly describes the following execution mechanism:
 
 For the first software implementation, we will represent this as a pending BUY trigger rather than immediately creating a trade when the setup candle closes.
 
+The pending trigger can be evaluated only on a bar later than the setup bar.
+
 Exact order semantics when price gaps above the trigger high are `UNDEFINED`.
 
 ## 5. BUY setup families in source
@@ -76,7 +78,7 @@ Source classification: **falling moving average + support**.
 
 The source describes this as relatively rare and indicates a preference for rising-MA setups.
 
-**Implementation status:** excluded from deterministic V1. This is still BUY-side conceptually, but it is not part of the first testable ruleset.
+**Implementation status:** a falling-MA direction primitive may label research context only. No Type 3 setup detector or trade rule is enabled because support remains undefined.
 
 ## 6. Rising SMA44 + support / bullish price action
 
@@ -150,9 +152,9 @@ The source describes an advanced setup using:
 - lower-timeframe confirmation/entry;
 - BUY above the bullish trigger high and stop below its low.
 
-The exact ATR exhaustion calculation, reference price, synchronization between daily and lower timeframe data, and entry timing are `UNDEFINED`.
+The source shows ATR exhaustion by subtracting the ATR from a demonstration reference price: the concrete example uses the next day's open, while an earlier illustration uses the prior close. The unique reference-price rule, synchronization between daily and lower timeframe data, and entry timing are `UNDEFINED`.
 
-This setup is excluded from deterministic V1.
+V1 includes only reusable ATR(14)-SMA, lower-boundary, and boundary-reached primitives. It does not select the reference price or create an ATR-based trade signal.
 
 ## 10. Historical MA44 behaviour
 
