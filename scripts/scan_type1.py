@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from meanmachine44.candles import Candle
 from meanmachine44.indicators import sma44
 from meanmachine44.ma44 import rising
 from meanmachine44.type1 import type1_candidate
@@ -16,14 +17,12 @@ def find_type1_setups(daily: pd.DataFrame) -> list[dict]:
     ma = sma44(closes)
     rising_ma = rising(ma, 3)
     rows = []
-    for i, (candle, value, is_rising) in enumerate(zip(daily.itertuples(), ma, rising_ma)):
-        if value is None or not type1_candidate(
-            __import__("meanmachine44.candles", fromlist=["Candle"]).Candle(
-                candle.open, candle.high, candle.low, candle.close
-            ),
-            value,
-            is_rising,
-        ):
+    for i, row in daily.iterrows():
+        value = ma[i]
+        if value is None:
+            continue
+        candle = Candle(row.open, row.high, row.low, row.close)
+        if not type1_candidate(candle, value, rising_ma[i]):
             continue
         trigger = None
         for j in range(i + 1, len(daily)):
@@ -31,8 +30,8 @@ def find_type1_setups(daily: pd.DataFrame) -> list[dict]:
                 trigger = daily.iloc[j]
                 break
         rows.append({
-            "symbol": candle.symbol,
-            "setup_date": candle.timestamp.isoformat(),
+            "symbol": row.symbol,
+            "setup_date": row.timestamp.isoformat(),
             "setup_high": candle.high,
             "setup_low": candle.low,
             "setup_close": candle.close,
