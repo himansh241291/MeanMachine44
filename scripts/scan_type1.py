@@ -24,11 +24,10 @@ def find_type1_setups(daily: pd.DataFrame) -> list[dict]:
         candle = Candle(row.open, row.high, row.low, row.close)
         if not type1_candidate(candle, value, rising_ma[i]):
             continue
-        trigger = None
-        for j in range(i + 1, len(daily)):
-            if daily.iloc[j]["high"] > candle.high:
-                trigger = daily.iloc[j]
-                break
+        trigger = next(
+            (daily.iloc[j] for j in range(i + 1, len(daily)) if daily.iloc[j]["high"] > candle.high),
+            None,
+        )
         rows.append({
             "symbol": row.symbol,
             "setup_date": row.timestamp.isoformat(),
