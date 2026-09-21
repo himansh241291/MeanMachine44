@@ -1,7 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import floor
+from math import floor, isnan
+
+
+def _present(value) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, float) and isnan(value):
+        return False
+    return bool(value)
 
 
 @dataclass(frozen=True)
@@ -71,82 +79,93 @@ def _quantity(cash: float, entry: float, stop: float, config: PortfolioConfig, c
     return max(0, min(risk_qty, cash_qty, cap_qty))
 
 
+def _close(position: dict, cash: float, costs: CostModel, closed: list[dict]) -> float:
+    exit_price = costs.fill_price(position["exit_reference"], False)
+    exit_notional = position["quantity"] * exit_price
+    exit_fees = costs.fees(exit_notional, False)
+    net_proceeds = exit_notional - exit_fees
+    cost_basis = position["quantity"] * position["entry_price"] + position["entry_fees"]
+    net_pnl = net_proceeds - cost_basis
+    cash += net_proceeds
+    closed.append({
+        **position["row"],
+        "quantity": position["quantity"],
+        "entry_fill": position["entry_price"],
+        "exit_fill": exit_price,
+        "entry_fees": position["entry_fees"],
+        "exit_fees": exit_fees,
+        "total_costs": position["entry_fees"] + exit_fees,
+        "gross_pnl": position["quantity"] * (position["exit_reference"] - position["entry_price"]),
+        "net_pnl": net_pnl,
+        "net_r": net_pnl / (position["quantity"] * (position["entry_reference"] - position["stop"])),
+        "portfolio_equity": cash,
+    })
+    return cash
+
+
 def simulate(rows: list[dict], config: PortfolioConfig, costs: CostModel) -> dict:
     cash = config.initial_capital
     active: list[dict] = []
     closed: list[dict] = []
     skipped_entries = 0
-    unresolved = sum(1 for row in rows if not row.get("outcome"))
+    unresolved = sum(1 for row in rows if not _present(row.get("outcome")))
 
-    ordered = sorted(rows, key=lambda row: (row["trigger_date"], row["symbol"], row["setup_date"]))
-    for row in ordered:
-        trigger_date = row["trigger_date"]
+    entries_by_date: dict[str, list[dict]] = {}
+    exit_dates = set()
+    for row in rows:
+        if not _present(row.get("outcome")):
+            continue
+        entries_by_date.setdefault(row["trigger_date"], []).append(row)
+        if _present(row.get("exit_date")):
+            exit_dates.add(row["exit_date"])
 
+    all_dates = sorted(set(entries_by_date) | exit_dates)
+    for current_date in all_dates:
         still_open = []
         for position in active:
-            if position["exit_date"] != trigger_date:
+            if position["exit_date"] == current_date:
+                cash = _close(position, cash, costs, closed)
+            else:
                 still_open.append(position)
-                continue
-            exit_price = costs.fill_price(position["exit_reference"], False)
-            exit_notional = position["quantity"] * exit_price
-            exit_fees = costs.fees(exit_notional, False)
-            net_proceeds = exit_notional - exit_fees
-            cost_basis = position["quantity"] * position["entry_price"] + position["entry_fees"]
-            net_pnl = net_proceeds - cost_basis
-            cash += net_proceeds
-            closed.append({
-                **position["row"],
-                "quantity": position["quantity"],
-                "entry_fill": position["entry_price"],
-                "exit_fill": exit_price,
-                "entry_fees": position["entry_fees"],
-                "exit_fees": exit_fees,
-                "total_costs": position["entry_fees"] + exit_fees,
-                "gross_pnl": position["quantity"] * (position["exit_reference"] - position["entry_price"]),
-                "net_pnl": net_pnl,
-                "net_r": net_pnl / (position["quantity"] * (position["entry_reference"] - position["stop"])),
-                "portfolio_equity": cash,
-            })
         active = still_open
 
-        if not row.get("outcome"):
-            continue
-        if len(active) >= config.max_open_positions:
-            skipped_entries += 1
-            continue
-        if any(position["row"]["symbol"] == row["symbol"] for position in active):
-            skipped_entries += 1
-            continue
+        for row in sorted(entries_by_date.get(current_date, []), key=lambda item: (item["symbol"], item["setup_date"])):
+            if len(active) >= config.max_open_positions:
+                skipped_entries += 1
+                continue
+            if any(position["row"]["symbol"] == row["symbol"] for position in active):
+                skipped_entries += 1
+                continue
 
-        entry_reference = float(row["entry"])
-        stop = float(row["stop"])
-        exit_date = row.get("exit_date")
-        if not exit_date or entry_reference <= stop:
-            skipped_entries += 1
-            continue
-        quantity = _quantity(cash, entry_reference, stop, config, costs)
-        if quantity < 1:
-            skipped_entries += 1
-            continue
+            entry_reference = float(row["entry"])
+            stop = float(row["stop"])
+            exit_date = row.get("exit_date")
+            if not _present(exit_date) or entry_reference <= stop:
+                skipped_entries += 1
+                continue
+            quantity = _quantity(cash, entry_reference, stop, config, costs)
+            if quantity < 1:
+                skipped_entries += 1
+                continue
 
-        entry_price = costs.fill_price(entry_reference, True)
-        entry_notional = quantity * entry_price
-        entry_fees = costs.fees(entry_notional, True)
-        total_entry = entry_notional + entry_fees
-        if total_entry > cash:
-            skipped_entries += 1
-            continue
-        cash -= total_entry
-        active.append({
-            "row": row,
-            "quantity": quantity,
-            "entry_reference": entry_reference,
-            "entry_price": entry_price,
-            "stop": stop,
-            "exit_reference": float(row["target"]) if row["outcome"] == "TARGET" else stop,
-            "exit_date": exit_date,
-            "entry_fees": entry_fees,
-        })
+            entry_price = costs.fill_price(entry_reference, True)
+            entry_notional = quantity * entry_price
+            entry_fees = costs.fees(entry_notional, True)
+            total_entry = entry_notional + entry_fees
+            if total_entry > cash:
+                skipped_entries += 1
+                continue
+            cash -= total_entry
+            active.append({
+                "row": row,
+                "quantity": quantity,
+                "entry_reference": entry_reference,
+                "entry_price": entry_price,
+                "stop": stop,
+                "exit_reference": float(row["target"]) if row["outcome"] == "TARGET" else stop,
+                "exit_date": exit_date,
+                "entry_fees": entry_fees,
+            })
 
     final_equity = cash + sum(p["quantity"] * p["entry_price"] for p in active)
     equity_values = [config.initial_capital] + [row["portfolio_equity"] for row in closed]
