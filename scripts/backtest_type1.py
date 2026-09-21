@@ -53,13 +53,14 @@ def backtest(daily: pd.DataFrame, variant: str, horizon: int = 20, lookback: int
         future_highs = daily.iloc[trigger + 1:end]["high"].tolist()
         future_lows = daily.iloc[trigger + 1:end]["low"].tolist()
         for multiple in TARGETS:
-            outcome = first_touch(
+            raw_outcome = first_touch(
                 future_highs,
                 future_lows,
                 {f"{multiple}R": target_levels[f"{multiple}R"]},
                 stop,
             )
-            r_value = -1.0 if outcome == "STOP" else float(multiple) if outcome else None
+            outcome = "STOP" if raw_outcome == "STOP" else "TARGET" if raw_outcome else None
+            r_value = -1.0 if outcome == "STOP" else float(multiple) if outcome == "TARGET" else None
             trades.append({
                 "symbol": row.symbol,
                 "setup_date": row.timestamp.isoformat(),
