@@ -8,7 +8,7 @@ import pandas as pd
 from meanmachine44.candles import Candle
 from meanmachine44.indicators import sma44
 from meanmachine44.ma44 import rising
-from meanmachine44.trade_research import first_touch, levels
+from meanmachine44.trade_research import first_touch_event, levels
 from meanmachine44.type1_research import local_low_reclaim, ma_touch_reclaim
 
 VARIANTS = ("ma_touch_reclaim", "local_low_reclaim")
@@ -53,7 +53,7 @@ def backtest(daily: pd.DataFrame, variant: str, horizon: int = 20, lookback: int
         future_highs = daily.iloc[trigger + 1:end]["high"].tolist()
         future_lows = daily.iloc[trigger + 1:end]["low"].tolist()
         for multiple in TARGETS:
-            raw_outcome = first_touch(
+            raw_outcome, offset = first_touch_event(
                 future_highs,
                 future_lows,
                 {f"{multiple}R": target_levels[f"{multiple}R"]},
@@ -61,10 +61,12 @@ def backtest(daily: pd.DataFrame, variant: str, horizon: int = 20, lookback: int
             )
             outcome = "STOP" if raw_outcome == "STOP" else "TARGET" if raw_outcome else None
             r_value = -1.0 if outcome == "STOP" else float(multiple) if outcome == "TARGET" else None
+            exit_index = trigger + 1 + offset if offset is not None else None
             trades.append({
                 "symbol": row.symbol,
                 "setup_date": row.timestamp.isoformat(),
                 "trigger_date": daily.iloc[trigger]["timestamp"].isoformat(),
+                "exit_date": daily.iloc[exit_index]["timestamp"].isoformat() if exit_index is not None else None,
                 "entry": entry,
                 "stop": stop,
                 "risk": risk,

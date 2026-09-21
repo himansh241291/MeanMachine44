@@ -8,11 +8,21 @@ def levels(entry: float, stop: float, multiples: tuple[int, ...] = (1, 2, 3)) ->
     return {f"{n}R": entry + n * risk for n in multiples}
 
 
-def first_touch(highs: list[float], lows: list[float], levels_: dict[str, float], stop: float) -> str | None:
-    for high, low in zip(highs, lows):
+def first_touch_event(
+    highs: list[float],
+    lows: list[float],
+    levels_: dict[str, float],
+    stop: float,
+) -> tuple[str | None, int | None]:
+    for index, (high, low) in enumerate(zip(highs, lows)):
         if low <= stop:
-            return "STOP"
+            return "STOP", index
         for name, target in levels_.items():
             if high >= target:
-                return name
-    return None
+                return name, index
+    return None, None
+
+
+def first_touch(highs: list[float], lows: list[float], levels_: dict[str, float], stop: float) -> str | None:
+    outcome, _ = first_touch_event(highs, lows, levels_, stop)
+    return outcome
