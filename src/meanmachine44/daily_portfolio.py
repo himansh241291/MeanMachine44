@@ -38,15 +38,39 @@ def _parse_time(value: str) -> datetime:
     return datetime.fromisoformat(value)
 
 
-def _quantity(equity: float, cash: float, entry: float, stop: float, config, costs) -> int:
+def _quantity(cash: float, entry: float, stop: float, config, costs) -> int:
     risk_per_share = entry - stop
     buy_price = costs.fill_price(entry, True)
-    buy_fee_rate = (costs.brokerage_bps + costs.exchange_bps + costs.sebi_bps) * (1 + costs.gst_rate) / 10_000
-    buy_fee_rate += costs.stamp_buy_bps / 10_000
-    risk_qty = floor((equity * config.risk_per_trade) / risk_per_share)
+    buy_fee_rate = (
+        costs.brokerage_bps + costs.exchange_bps + costs.sebi_bps
+    ) * (1 + costs.gst_rate) / 10_000 + costs.stamp_buy_bps / 10_000
+    risk_qty = floor((cash * config.risk_per_trade) / risk_per_share)
     cash_qty = floor(cash / (buy_price * (1 + buy_fee_rate)))
-    cap_qty = floor((equity * config.max_position_pct) / (buy_price * (1 + buy_fee_rate)))
+    cap_qty = floor((cash * config.max_position_pct) / (buy_price * (1 + buy_fee_rate)))
     return max(0, min(risk_qty, cash_qty, cap_qty))
+
+
+def _close(position: dict, cash: float, costs, closed: list[dict]) -> float:
+    exit_price = costs.fill_price(position["exit_reference"], False)
+    exit_notional = position["quantity"] * exit_price
+    exit_fees = costs.fees(exit_notional, False)
+    net_proceeds = exit_notional - exit_fees
+    cost_basis = position["quantity"] * position["entry_price"] + position["entry_fees"]
+    net_pnl = net_proceeds - cost_basis
+    cash += net_proceeds
+    closed.append({
+        **position["row"],
+        "quantity": position["quantity"],
+        "entry_fill": position["entry_price"],
+        "exit_fill": exit_price,
+        "entry_fees": position["entry_fees"],
+        "exit_fees": exit_fees,
+        "total_costs": position["entry_fees"] + exit_fees,
+        "gross_pnl": position["quantity"] * (position["exit_reference"] - position["entry_price"]),
+        "net_pnl": net_pnl,
+        "net_r": net_pnl / (position["quantity"] * (position["entry_reference"] - position["stop"])),
+    })
+    return cash
 
 
 def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
@@ -67,23 +91,6 @@ def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
         dates.add(_parse_time(row["trigger_date"]))
         dates.add(_parse_time(row["exit_date"]))
 
-    if not dates:
-        return {
-            "initial_capital": config.initial_capital,
-            "final_equity": config.initial_capital,
-            "net_pnl": 0.0,
-            "return_pct": 0.0,
-            "max_drawdown_pct": 0.0,
-            "closed_trades": 0,
-            "open_trades": 0,
-            "unresolved_trades": unresolved,
-            "skipped_entries": 0,
-            "peak_open_positions": 0,
-            "peak_capital_utilization_pct": 0.0,
-            "equity_curve": [],
-            "trades": [],
-        }
-
     cash = config.initial_capital
     active: list[dict] = []
     closed: list[dict] = []
@@ -100,29 +107,18 @@ def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
 
         remaining = []
         for position in active:
-            if position["exit_date"] != current_time:
+            if position["exit_date"] == current_time:
+                cash = _close(position, cash, costs, closed)
+            else:
                 remaining.append(position)
-                continue
-            exit_price = costs.fill_price(position["exit_reference"], False)
-            exit_notional = position["quantity"] * exit_price
-            exit_fees = costs.fees(exit_notional, False)
-            net_proceeds = exit_notional - exit_fees
-            cost_basis = position["quantity"] * position["entry_price"] + position["entry_fees"]
-            net_pnl = net_proceeds - cost_basis
-            cash += net_proceeds
-            closed.append({
-                **position["row"],
-                "quantity": position["quantity"],
-                "entry_fill": position["entry_price"],
-                "exit_fill": exit_price,
-                "entry_fees": position["entry_fees"],
-                "exit_fees": exit_fees,
-                "total_costs": position["entry_fees"] + exit_fees,
-                "gross_pnl": position["quantity"] * (position["exit_reference"] - position["entry_price"]),
-                "net_pnl": net_pnl,
-                "net_r": net_pnl / (position["quantity"] * (position["entry_reference"] - position["stop"])),
-            })
         active = remaining
+
+        equity_before_entries = cash + sum(
+            position["quantity"] * last_close.get(
+                position["row"]["symbol"], position["entry_price"]
+            )
+            for position in active
+        )
 
         for row in sorted(entries.get(current_time, []), key=lambda item: (item["symbol"], item["setup_date"])):
             if len(active) >= config.max_open_positions:
@@ -134,17 +130,10 @@ def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
 
             entry = float(row["entry"])
             stop = float(row["stop"])
-            quantity = _quantity(
-                cash + sum(
-                    position["quantity"] * last_close.get(position["row"]["symbol"], position["entry_price"])
-                    for position in active
-                ),
-                cash,
-                entry,
-                stop,
-                config,
-                costs,
-            )
+            if entry <= stop or not _present(row.get("exit_date")):
+                skipped_entries += 1
+                continue
+            quantity = _quantity(cash, entry, stop, config, costs)
             if quantity < 1:
                 skipped_entries += 1
                 continue
@@ -169,13 +158,13 @@ def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
             })
 
         market_value = sum(
-            position["quantity"] * last_close.get(position["row"]["symbol"], position["entry_price"])
+            position["quantity"] * last_close.get(
+                position["row"]["symbol"], position["entry_price"]
+            )
             for position in active
         )
         equity = cash + market_value
-        invested = sum(
-            position["quantity"] * position["entry_price"] for position in active
-        )
+        invested = sum(position["quantity"] * position["entry_price"] for position in active)
         utilization = (invested / equity * 100) if equity else 0.0
         peak_open = max(peak_open, len(active))
         peak_utilization = max(peak_utilization, utilization)
@@ -190,7 +179,7 @@ def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
             "capital_utilization_pct": utilization,
         })
 
-    final_equity = curve[-1]["equity"]
+    final_equity = curve[-1]["equity"] if curve else config.initial_capital
     return {
         "initial_capital": config.initial_capital,
         "final_equity": final_equity,
