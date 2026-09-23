@@ -31,3 +31,36 @@ def test_backtest_has_triggered_entry_and_stop_geometry():
     assert one_r["entry"] == 151
     assert one_r["stop"] == 120
     assert one_r["risk"] == 31
+
+
+def test_backtest_applies_point_in_time_membership_to_setup_date():
+    from datetime import date
+
+    from meanmachine44.universe import HistoricalUniverse, MembershipInterval
+
+    universe = HistoricalUniverse(
+        (MembershipInterval("TEST", date(2026, 2, 21)),)
+    )
+    assert backtest(
+        frame(),
+        "ma_touch_reclaim",
+        horizon=20,
+        universe=universe,
+    ) == []
+
+
+def test_backtest_keeps_price_history_for_indicator_warmup():
+    from datetime import date
+
+    from meanmachine44.universe import HistoricalUniverse, MembershipInterval
+
+    universe = HistoricalUniverse(
+        (MembershipInterval("TEST", date(2026, 2, 1)),)
+    )
+    result = backtest(
+        frame(),
+        "ma_touch_reclaim",
+        horizon=20,
+        universe=universe,
+    )
+    assert len(result) == 3

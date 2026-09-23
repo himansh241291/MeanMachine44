@@ -10,6 +10,7 @@ from meanmachine44.indicators import sma44
 from meanmachine44.ma44 import rising
 from meanmachine44.trade_research import first_touch_event, levels
 from meanmachine44.type1_research import local_low_reclaim, ma_touch_reclaim
+from meanmachine44.universe import HistoricalUniverse, load_membership_csv
 
 VARIANTS = ("ma_touch_reclaim", "local_low_reclaim")
 TARGETS = (1, 2, 3)
@@ -21,16 +22,30 @@ def qualifies(candle, value, rising_now, prior_lows, variant, lookback):
     return local_low_reclaim(candle, prior_lows, rising_now, lookback)
 
 
-def backtest(daily: pd.DataFrame, variant: str, horizon: int = 20, lookback: int = 5) -> list[dict]:
+def backtest(
+    daily: pd.DataFrame,
+    variant: str,
+    horizon: int = 20,
+    lookback: int = 5,
+    universe: HistoricalUniverse | None = None,
+    start: str | None = None,
+    end: str | None = None,
+) -> list[dict]:
     if horizon < 1:
         raise ValueError("horizon must be >= 1")
     daily = daily.sort_values("timestamp").reset_index(drop=True)
+    if start is not None:
+        daily = daily[daily["timestamp"] >= pd.Timestamp(start, tz="UTC")].reset_index(drop=True)
+    if end is not None:
+        daily = daily[daily["timestamp"] <= pd.Timestamp(end, tz="UTC")].reset_index(drop=True)
     ma = sma44(daily["close"].tolist())
     rising_ma = rising(ma, 3)
     trades = []
     for i, row in daily.iterrows():
         value = ma[i]
         if value is None:
+            continue
+        if universe is not None and not universe.contains(row.symbol, row.timestamp):
             continue
         candle = Candle(row.open, row.high, row.low, row.close)
         prior_lows = daily.iloc[:i]["low"].tolist()
@@ -84,14 +99,28 @@ def main() -> None:
     parser.add_argument("--input", default="data/raw/nifty500_daily.csv")
     parser.add_argument("--horizon", type=int, default=20)
     parser.add_argument("--lookback", type=int, default=5)
+    parser.add_argument("--membership")
+    parser.add_argument("--start")
+    parser.add_argument("--end")
     parser.add_argument("--output", default="data/output/type1_trades.csv")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     frame = pd.read_csv(root / args.input, parse_dates=["timestamp"])
+    universe = load_membership_csv(root / args.membership) if args.membership else None
     rows = []
     for _, daily in frame.groupby("symbol", sort=True):
         for variant in VARIANTS:
-            rows.extend(backtest(daily, variant, args.horizon, args.lookback))
+            rows.extend(
+                backtest(
+                    daily,
+                    variant,
+                    args.horizon,
+                    args.lookback,
+                    universe,
+                    args.start,
+                    args.end,
+                )
+            )
     out = root / args.output
     out.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).to_csv(out, index=False)
