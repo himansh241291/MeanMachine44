@@ -169,7 +169,8 @@ def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
         )
         equity = cash + market_value
         invested = sum(position["quantity"] * position["entry_price"] for position in active)
-        utilization = (invested / equity * 100) if equity else 0.0
+        deployed = cash + invested
+        utilization = (invested / deployed * 100) if deployed else 0.0
         peak_open = max(peak_open, len(active))
         peak_utilization = max(peak_utilization, utilization)
         peak_equity = max(peak_equity, equity)

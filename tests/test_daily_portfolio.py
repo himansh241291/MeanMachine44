@@ -82,3 +82,17 @@ def test_daily_closes_same_day_gap_execution():
     )
     assert result["closed_trades"] == 1
     assert result["open_trades"] == 0
+
+def test_utilization_uses_deployed_entry_capital():
+    row = base_row()
+    result = simulate_daily(
+        [row],
+        bars(),
+        DailyPortfolioConfig(
+            initial_capital=10_000,
+            risk_per_trade=0.01,
+            max_position_pct=1.0,
+        ),
+        CostModel(),
+    )
+    assert result["peak_capital_utilization_pct"] <= 100.0
