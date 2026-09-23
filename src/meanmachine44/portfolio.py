@@ -42,6 +42,11 @@ class CostModel:
             return reference * (1 + spread + slippage)
         return reference * (1 - spread - slippage)
 
+    def execution_costs(self, reference: float, quantity: int) -> tuple[float, float]:
+        spread_cost = quantity * reference * self.spread_bps / 20_000
+        slippage_cost = quantity * reference * self.slippage_bps / 10_000
+        return spread_cost, slippage_cost
+
 
 @dataclass(frozen=True)
 class PortfolioConfig:
@@ -83,9 +88,19 @@ def _close(position: dict, cash: float, costs: CostModel, closed: list[dict]) ->
     exit_price = costs.fill_price(position["exit_reference"], False)
     exit_notional = position["quantity"] * exit_price
     exit_fees = costs.fees(exit_notional, False)
+    exit_spread_cost, exit_slippage_cost = costs.execution_costs(
+        position["exit_reference"], position["quantity"]
+    )
     net_proceeds = exit_notional - exit_fees
     cost_basis = position["quantity"] * position["entry_price"] + position["entry_fees"]
     net_pnl = net_proceeds - cost_basis
+    explicit_fees = position["entry_fees"] + exit_fees
+    spread_cost = position["entry_spread_cost"] + exit_spread_cost
+    slippage_cost = position["entry_slippage_cost"] + exit_slippage_cost
+    total_costs = explicit_fees + spread_cost + slippage_cost
+    turnover = position["quantity"] * (
+        position["entry_reference"] + position["exit_reference"]
+    )
     cash += net_proceeds
     closed.append({
         **position["row"],
@@ -94,8 +109,19 @@ def _close(position: dict, cash: float, costs: CostModel, closed: list[dict]) ->
         "exit_fill": exit_price,
         "entry_fees": position["entry_fees"],
         "exit_fees": exit_fees,
-        "total_costs": position["entry_fees"] + exit_fees,
-        "gross_pnl": position["quantity"] * (position["exit_reference"] - position["entry_price"]),
+        "explicit_fees": explicit_fees,
+        "entry_spread_cost": position["entry_spread_cost"],
+        "exit_spread_cost": exit_spread_cost,
+        "spread_cost": spread_cost,
+        "entry_slippage_cost": position["entry_slippage_cost"],
+        "exit_slippage_cost": exit_slippage_cost,
+        "slippage_cost": slippage_cost,
+        "total_costs": total_costs,
+        "turnover": turnover,
+        "effective_cost_bps": total_costs / turnover * 10_000,
+        "gross_pnl": position["quantity"] * (
+            position["exit_reference"] - position["entry_reference"]
+        ),
         "net_pnl": net_pnl,
         "net_r": net_pnl / (position["quantity"] * (position["entry_reference"] - position["stop"])),
         "portfolio_equity": cash,
@@ -151,6 +177,9 @@ def simulate(rows: list[dict], config: PortfolioConfig, costs: CostModel) -> dic
             entry_price = costs.fill_price(entry_reference, True)
             entry_notional = quantity * entry_price
             entry_fees = costs.fees(entry_notional, True)
+            entry_spread_cost, entry_slippage_cost = costs.execution_costs(
+                entry_reference, quantity
+            )
             total_entry = entry_notional + entry_fees
             if total_entry > cash:
                 skipped_entries += 1
@@ -165,6 +194,8 @@ def simulate(rows: list[dict], config: PortfolioConfig, costs: CostModel) -> dic
                 "exit_reference": float(row["target"]) if row["outcome"] == "TARGET" else stop,
                 "exit_date": exit_date,
                 "entry_fees": entry_fees,
+                "entry_spread_cost": entry_spread_cost,
+                "entry_slippage_cost": entry_slippage_cost,
             })
 
     final_equity = cash + sum(p["quantity"] * p["entry_price"] for p in active)
@@ -178,6 +209,8 @@ def simulate(rows: list[dict], config: PortfolioConfig, costs: CostModel) -> dic
     losses = [row["net_pnl"] for row in closed if row["net_pnl"] < 0]
     gross_profit = sum(wins)
     gross_loss = -sum(losses)
+    total_costs = sum(row["total_costs"] for row in closed)
+    turnover = sum(row["turnover"] for row in closed)
     return {
         "initial_capital": config.initial_capital,
         "final_equity": final_equity,
@@ -192,6 +225,11 @@ def simulate(rows: list[dict], config: PortfolioConfig, costs: CostModel) -> dic
         "losses": len(losses),
         "win_rate_pct": (len(wins) / len(closed) * 100) if closed else 0.0,
         "profit_factor": (gross_profit / gross_loss) if gross_loss else None,
-        "total_costs": sum(row["total_costs"] for row in closed),
+        "explicit_fees": sum(row["explicit_fees"] for row in closed),
+        "spread_cost": sum(row["spread_cost"] for row in closed),
+        "slippage_cost": sum(row["slippage_cost"] for row in closed),
+        "total_costs": total_costs,
+        "turnover": turnover,
+        "effective_cost_bps": (total_costs / turnover * 10_000) if turnover else 0.0,
         "trades": closed,
     }

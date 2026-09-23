@@ -83,6 +83,28 @@ def test_daily_closes_same_day_gap_execution():
     assert result["closed_trades"] == 1
     assert result["open_trades"] == 0
 
+def test_daily_cost_breakdown_reconciles_net_pnl():
+    result = simulate_daily(
+        [base_row()],
+        bars(),
+        DailyPortfolioConfig(
+            initial_capital=10_000,
+            risk_per_trade=0.01,
+            max_position_pct=1.0,
+        ),
+        CostModel(brokerage_bps=10, stt_sell_bps=5, spread_bps=5, slippage_bps=5),
+    )
+    trade = result["trades"][0]
+    assert trade["explicit_fees"] > 0
+    assert trade["spread_cost"] > 0
+    assert trade["slippage_cost"] > 0
+    assert trade["total_costs"] == pytest.approx(
+        trade["explicit_fees"] + trade["spread_cost"] + trade["slippage_cost"]
+    )
+    assert trade["net_pnl"] == pytest.approx(trade["gross_pnl"] - trade["total_costs"])
+    assert result["effective_cost_bps"] > 0
+
+
 def test_utilization_uses_deployed_entry_capital():
     row = base_row()
     result = simulate_daily(

@@ -54,9 +54,19 @@ def _close(position: dict, cash: float, costs, closed: list[dict]) -> float:
     exit_price = costs.fill_price(position["exit_reference"], False)
     exit_notional = position["quantity"] * exit_price
     exit_fees = costs.fees(exit_notional, False)
+    exit_spread_cost, exit_slippage_cost = costs.execution_costs(
+        position["exit_reference"], position["quantity"]
+    )
     net_proceeds = exit_notional - exit_fees
     cost_basis = position["quantity"] * position["entry_price"] + position["entry_fees"]
     net_pnl = net_proceeds - cost_basis
+    explicit_fees = position["entry_fees"] + exit_fees
+    spread_cost = position["entry_spread_cost"] + exit_spread_cost
+    slippage_cost = position["entry_slippage_cost"] + exit_slippage_cost
+    total_costs = explicit_fees + spread_cost + slippage_cost
+    turnover = position["quantity"] * (
+        position["entry_reference"] + position["exit_reference"]
+    )
     cash += net_proceeds
     closed.append({
         **position["row"],
@@ -65,8 +75,19 @@ def _close(position: dict, cash: float, costs, closed: list[dict]) -> float:
         "exit_fill": exit_price,
         "entry_fees": position["entry_fees"],
         "exit_fees": exit_fees,
-        "total_costs": position["entry_fees"] + exit_fees,
-        "gross_pnl": position["quantity"] * (position["exit_reference"] - position["entry_price"]),
+        "explicit_fees": explicit_fees,
+        "entry_spread_cost": position["entry_spread_cost"],
+        "exit_spread_cost": exit_spread_cost,
+        "spread_cost": spread_cost,
+        "entry_slippage_cost": position["entry_slippage_cost"],
+        "exit_slippage_cost": exit_slippage_cost,
+        "slippage_cost": slippage_cost,
+        "total_costs": total_costs,
+        "turnover": turnover,
+        "effective_cost_bps": total_costs / turnover * 10_000,
+        "gross_pnl": position["quantity"] * (
+            position["exit_reference"] - position["entry_reference"]
+        ),
         "net_pnl": net_pnl,
         "net_r": net_pnl / (position["quantity"] * (position["entry_reference"] - position["stop"])),
     })
@@ -141,6 +162,9 @@ def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
             entry_price = costs.fill_price(entry, True)
             entry_notional = quantity * entry_price
             entry_fees = costs.fees(entry_notional, True)
+            entry_spread_cost, entry_slippage_cost = costs.execution_costs(
+                entry, quantity
+            )
             total_entry = entry_notional + entry_fees
             if total_entry > cash:
                 skipped_entries += 1
@@ -155,6 +179,8 @@ def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
                 "exit_reference": float(row["exit_fill"]) if _present(row.get("exit_fill")) else (float(row["target"]) if row["outcome"] == "TARGET" else stop),
                 "exit_date": _parse_time(row["exit_date"]),
                 "entry_fees": entry_fees,
+                "entry_spread_cost": entry_spread_cost,
+                "entry_slippage_cost": entry_slippage_cost,
             }
             if position["exit_date"] == current_time:
                 cash = _close(position, cash, costs, closed)
@@ -185,6 +211,8 @@ def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
         })
 
     final_equity = curve[-1]["equity"] if curve else config.initial_capital
+    total_costs = sum(row["total_costs"] for row in closed)
+    turnover = sum(row["turnover"] for row in closed)
     return {
         "initial_capital": config.initial_capital,
         "final_equity": final_equity,
@@ -197,7 +225,12 @@ def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
         "skipped_entries": skipped_entries,
         "peak_open_positions": peak_open,
         "peak_capital_utilization_pct": peak_utilization,
-        "total_costs": sum(row["total_costs"] for row in closed),
+        "explicit_fees": sum(row["explicit_fees"] for row in closed),
+        "spread_cost": sum(row["spread_cost"] for row in closed),
+        "slippage_cost": sum(row["slippage_cost"] for row in closed),
+        "total_costs": total_costs,
+        "turnover": turnover,
+        "effective_cost_bps": (total_costs / turnover * 10_000) if turnover else 0.0,
         "equity_curve": curve,
         "trades": closed,
     }

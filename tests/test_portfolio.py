@@ -50,7 +50,15 @@ def test_costs_reduce_pnl():
         CostModel(brokerage_bps=10, stt_sell_bps=5, spread_bps=5, slippage_bps=5),
     )
     assert result["final_equity"] < 10_200.0
-    assert result["total_costs"] > 0
+    trade = result["trades"][0]
+    assert trade["explicit_fees"] > 0
+    assert trade["spread_cost"] > 0
+    assert trade["slippage_cost"] > 0
+    assert trade["total_costs"] == pytest.approx(
+        trade["explicit_fees"] + trade["spread_cost"] + trade["slippage_cost"]
+    )
+    assert trade["net_pnl"] == pytest.approx(trade["gross_pnl"] - trade["total_costs"])
+    assert result["effective_cost_bps"] > 0
 
 
 def test_unresolved_trades_are_excluded():

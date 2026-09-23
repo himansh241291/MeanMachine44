@@ -52,3 +52,19 @@ Output defaults to:
 This is a friction-survival diagnostic. A result that remains positive under one bundled profile is not proof of profitability, robustness, or live-trading viability.
 
 The current daily backtest still has known execution simplifications and uses the historically current NIFTY 500 membership, so survivorship bias remains.
+
+
+## Cost attribution
+
+Each closed trade now exposes the full modeled friction stack:
+
+- **explicit_fees**: brokerage, exchange, SEBI charges, GST on modeled fees, and the configured buy stamp duty / sell STT.
+- **spread_cost**: the economic impact of the modeled bid/ask spread.
+- **slippage_cost**: the economic impact of modeled slippage.
+- **total_costs**: explicit fees plus spread and slippage.
+- **turnover**: entry-reference notional plus exit-reference notional.
+- **effective_cost_bps**: total modeled friction divided by turnover.
+
+Gross P&L is measured before all modeled friction, using the entry and exit reference prices. Net P&L is reconciled against gross P&L minus total modeled costs. This makes the cost sensitivity output auditable without changing the strategy or execution assumptions.
+
+The spread and slippage values remain analytical stress assumptions and are not broker or statutory claims.
