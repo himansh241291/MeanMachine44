@@ -47,3 +47,10 @@ def test_audit_reports_missing_bars():
     result = audit_execution([row()], [bars()[0]])[0]
     assert result["missing_exit_bar"] == 1
     assert result["exit_gap_count"] == 0
+
+
+def test_audit_handles_pandas_nan_exit_date():
+    item = row()
+    item["exit_date"] = float("nan")
+    result = audit_execution([item], bars())[0]
+    assert result["missing_exit_bar"] == 1
