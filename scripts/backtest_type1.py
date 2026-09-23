@@ -34,16 +34,16 @@ def backtest(
     if horizon < 1:
         raise ValueError("horizon must be >= 1")
     daily = daily.sort_values("timestamp").reset_index(drop=True)
-    if start is not None:
-        daily = daily[daily["timestamp"] >= pd.Timestamp(start, tz="UTC")].reset_index(drop=True)
-    if end is not None:
-        daily = daily[daily["timestamp"] <= pd.Timestamp(end, tz="UTC")].reset_index(drop=True)
     ma = sma44(daily["close"].tolist())
     rising_ma = rising(ma, 3)
     trades = []
     for i, row in daily.iterrows():
         value = ma[i]
         if value is None:
+            continue
+        if start is not None and row.timestamp < pd.Timestamp(start, tz="UTC"):
+            continue
+        if end is not None and row.timestamp > pd.Timestamp(end, tz="UTC"):
             continue
         if universe is not None and not universe.contains(row.symbol, row.timestamp):
             continue

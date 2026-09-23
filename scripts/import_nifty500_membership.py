@@ -39,6 +39,8 @@ def normalize_nifty500(frame: pd.DataFrame) -> pd.DataFrame:
     for symbol, part in result.groupby("symbol", sort=False):
         previous_end = None
         for _, row in part.iterrows():
+            if previous_end is None and row["effective_from"] > part.iloc[0]["effective_from"]:
+                raise ValueError(f"open-ended membership interval before {symbol}")
             if previous_end is not None and row["effective_from"] < previous_end:
                 raise ValueError(f"overlapping membership intervals for {symbol}")
             previous_end = row["effective_to"]

@@ -23,3 +23,16 @@ def test_normalize_nifty500():
 def test_normalize_nifty500_requires_columns():
     with pytest.raises(ValueError):
         normalize_nifty500(pd.DataFrame({"symbol": ["AAA"]}))
+
+
+def test_normalize_nifty500_rejects_open_ended_interval_before_later_interval():
+    frame = pd.DataFrame(
+        {
+            "index_name": ["Nifty 500", "Nifty 500"],
+            "symbol": ["AAA", "AAA"],
+            "valid_from": ["2020-01-01", "2020-06-01"],
+            "valid_to": [None, None],
+        }
+    )
+    with pytest.raises(ValueError):
+        normalize_nifty500(frame)
