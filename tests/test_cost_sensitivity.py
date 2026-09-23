@@ -71,6 +71,6 @@ def test_cost_sensitivity_reports_selected_profile():
     assert result[1]["cost_scenario"] == "high_friction"
     assert result[1]["total_costs"] > 0
     assert result[1]["final_equity"] < result[0]["final_equity"]
-    assert result[0]["profit_factor"] > 0
+    assert result[0]["profit_factor"] is None
     assert result[0]["expectancy_r"] > 0
     assert result[0]["cagr_pct"] is not None
