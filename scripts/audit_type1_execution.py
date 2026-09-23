@@ -28,6 +28,11 @@ def main() -> None:
     print(f"rows={len(results)}")
     print(f"output={output}")
     print(pd.DataFrame(results).to_string(index=False))
+    if results:
+        print("\ntrigger-gap interaction totals")
+        frame = pd.DataFrame(results)
+        cols = ["trigger_gap_stop_touch_count", "trigger_gap_target_touch_count", "trigger_gap_both_count", "entry_gap_cross_target_count"]
+        print(frame[cols].sum().to_string())
 
 
 if __name__ == "__main__":
