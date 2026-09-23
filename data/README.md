@@ -13,4 +13,14 @@ Historical market data is kept outside the repository unless explicitly added fo
 
 The loader is `meanmachine44.market.load_csv()`.
 
-No market dataset is assumed by V1. Data provenance, date range, timeframe, and timezone must be recorded for research runs.
+## Historical universe
+
+Date-effective membership is a separate input:
+
+`symbol,effective_from,effective_to`
+
+The membership contract is documented in `docs/data/HISTORICAL_UNIVERSE_CONTRACT.md`.
+
+No present-day constituent list should be silently treated as historical membership. Data provenance, date range, timeframe, timezone, universe source, and universe coverage must be recorded for research runs.
+
+No market dataset is assumed by V1. 
