@@ -37,3 +37,7 @@ Run from the repository root:
 Output:
 
     data/output/type1_execution_audit.csv
+
+## Current audit checkpoint
+
+Using the current historical Type 1 dataset, the six variant/target rows together report 2,475 trigger-gap bars touching the modeled stop, 2,368 touching the modeled target, 124 touching both, and 317 opening at or above the modeled target. These are descriptive audit counts, not execution results. Because daily OHLC does not establish intraday ordering when both levels are touched, the future execution layer must keep those cases explicit rather than silently assigning an order.
