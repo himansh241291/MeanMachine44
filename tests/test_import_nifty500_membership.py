@@ -45,7 +45,8 @@ def test_normalize_nifty500_cutoff_excludes_later_intervals():
     frame.loc[0, "valid_from"] = "2026-04-01"
     frame.loc[0, "valid_to"] = None
     result = normalize_nifty500(frame, cutoff="2026-03-30")
-    assert result.empty
+    assert len(result) == 1
+    assert result.iloc[0]["effective_from"] == pd.Timestamp("2020-06-01").date()
 
 
 def test_normalize_nifty500_requires_columns():
