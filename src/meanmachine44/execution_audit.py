@@ -2,10 +2,17 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime
+from math import isnan
 
 
-def _parse_time(value: str) -> datetime:
-    return datetime.fromisoformat(value)
+def _present(value) -> bool:
+    return value is not None and not (isinstance(value, float) and isnan(value)) and bool(value)
+
+
+def _parse_time(value) -> datetime:
+    if not _present(value):
+        raise ValueError("timestamp is required")
+    return datetime.fromisoformat(str(value))
 
 
 def _stats(values: list[float]) -> tuple[float | None, float | None]:
@@ -38,8 +45,13 @@ def audit_execution(rows: list[dict], bars: list[object]) -> list[dict]:
         group = groups[key]
         group["trades"] += 1
 
-        trigger = lookup.get((row["symbol"], _parse_time(row["trigger_date"])))
-        exit_bar = lookup.get((row["symbol"], _parse_time(row["exit_date"]))) if row.get("exit_date") else None
+        trigger = None
+        if _present(row.get("trigger_date")):
+            trigger = lookup.get((row["symbol"], _parse_time(row["trigger_date"])))
+
+        exit_bar = None
+        if _present(row.get("exit_date")):
+            exit_bar = lookup.get((row["symbol"], _parse_time(row["exit_date"])))
 
         if trigger is None:
             group["missing_trigger_bar"] += 1
@@ -54,10 +66,11 @@ def audit_execution(rows: list[dict], bars: list[object]) -> list[dict]:
         else:
             open_price = float(exit_bar.open if hasattr(exit_bar, "open") else exit_bar["open"])
             outcome = row.get("outcome")
-            reference = float(row["stop"] if outcome == "STOP" else row["target"])
-            through = open_price < reference if outcome == "STOP" else open_price > reference
-            if outcome in {"STOP", "TARGET"} and through:
-                group["exit_gaps"].append(abs(open_price - reference) / reference * 10_000)
+            if outcome in {"STOP", "TARGET"}:
+                reference = float(row["stop"] if outcome == "STOP" else row["target"])
+                through = open_price < reference if outcome == "STOP" else open_price > reference
+                if through:
+                    group["exit_gaps"].append(abs(open_price - reference) / reference * 10_000)
 
     results = []
     for (variant, target), group in sorted(groups.items()):
