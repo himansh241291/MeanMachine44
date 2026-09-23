@@ -36,6 +36,7 @@ def backtest(
     daily = daily.sort_values("timestamp").reset_index(drop=True)
     ma = sma44(daily["close"].tolist())
     rising_ma = rising(ma, 3)
+    end_time = pd.Timestamp(end, tz="UTC") if end is not None else None
     trades = []
     for i, row in daily.iterrows():
         value = ma[i]
@@ -54,6 +55,8 @@ def backtest(
         trigger = None
         end = min(i + horizon + 1, len(daily))
         for j in range(i + 1, end):
+            if end_time is not None and daily.iloc[j]["timestamp"] > end_time:
+                break
             if daily.iloc[j]["high"] > candle.high:
                 trigger = j
                 break
@@ -65,8 +68,11 @@ def backtest(
             continue
         risk = entry - stop
         target_levels = levels(entry, stop)
-        future_highs = daily.iloc[trigger + 1:end]["high"].tolist()
-        future_lows = daily.iloc[trigger + 1:end]["low"].tolist()
+        future = daily.iloc[trigger + 1:end]
+        if end_time is not None:
+            future = future[future["timestamp"] <= end_time]
+        future_highs = future["high"].tolist()
+        future_lows = future["low"].tolist()
         for multiple in TARGETS:
             raw_outcome, offset = first_touch_event(
                 future_highs,

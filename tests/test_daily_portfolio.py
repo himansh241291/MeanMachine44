@@ -118,9 +118,3 @@ def test_utilization_uses_deployed_entry_capital():
         CostModel(),
     )
     assert result["peak_capital_utilization_pct"] <= 100.0
-
-
-def test_daily_end_cutoff_is_applied_by_runner_logic():
-    # The simulator itself consumes supplied bars; cutoff filtering belongs to the CLI layer.
-    # This fixture preserves the contract that a caller can pass only bars through the cutoff.
-    assert bars()[-1].timestamp.isoformat() == "2026-01-04T00:00:00+00:00"

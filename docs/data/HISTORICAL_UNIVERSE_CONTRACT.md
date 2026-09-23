@@ -71,8 +71,3 @@ The current point-in-time NIFTY 500 research source is the public `aditya-jha/ns
 Its documentation states that index membership is derived from public NSE Indices press releases/circulars, with high-confidence coverage from 2017 onward and clean cardinality from 2018 onward. It also documents pre-2018 walk-back drift.
 
 This dataset is used only to model the historical NIFTY 500 universe; it does not define any MA44 strategy rule.
-
-
-## Research cutoff
-
-The daily portfolio and cost-sensitivity CLIs accept optional `--start` and `--end` UTC timestamps. Use the same cutoff as the universe-history coverage so the equity curve does not extend beyond the point-in-time membership experiment.
