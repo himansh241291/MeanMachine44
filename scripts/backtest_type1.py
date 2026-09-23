@@ -52,8 +52,12 @@ def backtest(
         if not qualifies(candle, value, rising_ma[i], prior_lows, variant, lookback):
             continue
         trigger = None
-        end = min(i + horizon + 1, len(daily))
-        for j in range(i + 1, end):
+        scan_end = min(i + horizon + 1, len(daily))
+        if end is not None:
+            cutoff = pd.Timestamp(end, tz="UTC")
+            while scan_end > i + 1 and daily.iloc[scan_end - 1]["timestamp"] > cutoff:
+                scan_end -= 1
+        for j in range(i + 1, scan_end):
             if daily.iloc[j]["high"] > candle.high:
                 trigger = j
                 break
@@ -65,8 +69,8 @@ def backtest(
             continue
         risk = entry - stop
         target_levels = levels(entry, stop)
-        future_highs = daily.iloc[trigger + 1:end]["high"].tolist()
-        future_lows = daily.iloc[trigger + 1:end]["low"].tolist()
+        future_highs = daily.iloc[trigger + 1:scan_end]["high"].tolist()
+        future_lows = daily.iloc[trigger + 1:scan_end]["low"].tolist()
         for multiple in TARGETS:
             raw_outcome, offset = first_touch_event(
                 future_highs,
