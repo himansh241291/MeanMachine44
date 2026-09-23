@@ -67,3 +67,11 @@ def test_normalize_nifty500_rejects_open_ended_interval_before_later_interval():
     )
     with pytest.raises(ValueError):
         normalize_nifty500(frame)
+
+
+def test_normalize_nifty500_keeps_interval_that_started_before_cutoff():
+    frame = source_frame()
+    frame.loc[1, "valid_from"] = "2026-03-30"
+    frame.loc[1, "valid_to"] = "2026-05-12"
+    result = normalize_nifty500(frame, cutoff="2026-03-30")
+    assert result.iloc[-1]["effective_from"] == pd.Timestamp("2026-03-30").date()

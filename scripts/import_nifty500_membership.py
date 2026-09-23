@@ -44,11 +44,6 @@ def normalize_nifty500(
     ).dt.date.map(lambda value: value if pd.notna(value) else None)
     result = result[result["effective_from"] <= cutoff_date].copy()
     result = result[
-        result["effective_to"].map(
-            lambda value: value is None or value > result["effective_from"].iloc[0]
-        )
-    ]
-    result = result[
         ["symbol", "effective_from", "effective_to", "source", "source_url", "notes"]
     ]
     result = result.drop_duplicates().sort_values(["symbol", "effective_from"])
