@@ -146,7 +146,7 @@ def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
                 skipped_entries += 1
                 continue
             cash -= total_entry
-            active.append({
+            position = {
                 "row": row,
                 "quantity": quantity,
                 "entry_reference": entry,
@@ -155,7 +155,11 @@ def simulate_daily(rows: list[dict], bars: list[object], config, costs) -> dict:
                 "exit_reference": float(row["exit_fill"]) if _present(row.get("exit_fill")) else (float(row["target"]) if row["outcome"] == "TARGET" else stop),
                 "exit_date": _parse_time(row["exit_date"]),
                 "entry_fees": entry_fees,
-            })
+            }
+            if position["exit_date"] == current_time:
+                cash = _close(position, cash, costs, closed)
+            else:
+                active.append(position)
 
         market_value = sum(
             position["quantity"] * last_close.get(

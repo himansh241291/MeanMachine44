@@ -67,3 +67,18 @@ def test_daily_unresolved_is_excluded():
     )
     assert result["unresolved_trades"] == 1
     assert result["final_equity"] == pytest.approx(10_000.0)
+
+def test_daily_closes_same_day_gap_execution():
+    row = base_row()
+    row["entry_fill"] = 105.0
+    row["exit_fill"] = 110.0
+    row["trigger_date"] = "2026-01-02T00:00:00+00:00"
+    row["exit_date"] = row["trigger_date"]
+    result = simulate_daily(
+        [row],
+        bars(),
+        DailyPortfolioConfig(initial_capital=10_000, risk_per_trade=0.01, max_position_pct=1.0),
+        CostModel(),
+    )
+    assert result["closed_trades"] == 1
+    assert result["open_trades"] == 0
