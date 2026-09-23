@@ -20,6 +20,8 @@ def main() -> None:
     parser.add_argument("--risk-per-trade", type=float, default=0.01)
     parser.add_argument("--max-open-positions", type=int, default=10)
     parser.add_argument("--max-position-pct", type=float, default=0.20)
+    parser.add_argument("--start")
+    parser.add_argument("--end")
     parser.add_argument("--brokerage-bps", type=float, default=0.0)
     parser.add_argument("--exchange-bps", type=float, default=0.0)
     parser.add_argument("--stt-sell-bps", type=float, default=0.0)
@@ -38,9 +40,18 @@ def main() -> None:
         & (trades["target_multiple"] == args.target)
     ].copy()
     rows = part.to_dict("records")
+    bars = load_csv(root / args.market)
+    if args.start or args.end:
+        start = pd.Timestamp(args.start, tz="UTC") if args.start else None
+        end = pd.Timestamp(args.end, tz="UTC") if args.end else None
+        bars = [
+            bar for bar in bars
+            if (start is None or bar.timestamp >= start)
+            and (end is None or bar.timestamp <= end)
+        ]
     result = simulate_daily(
         rows,
-        load_csv(root / args.market),
+        bars,
         DailyPortfolioConfig(
             initial_capital=args.initial_capital,
             risk_per_trade=args.risk_per_trade,
