@@ -29,4 +29,4 @@ No market dataset is assumed by V1.
 
 Use `scripts/import_nifty500_membership.py` to obtain the pinned historical membership table. The source is an external research dataset derived from public NSE Indices publications. The imported output is local research data and is not committed by default.
 
-The importer is pinned to source commit `0e9f58c4d457faf0e7ad3db4f4c1449e697e23e0` for reproducibility.
+The importer is pinned to source commit `0e9f58c4d457faf0e7ad3db4f4c1449e697e23e0` for reproducibility and defaults to the conservative PIT cutoff `2026-03-30`. Imported membership rows retain source provenance fields.

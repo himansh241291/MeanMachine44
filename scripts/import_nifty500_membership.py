@@ -21,20 +21,36 @@ def load_source(url: str = SOURCE_URL) -> pd.DataFrame:
     return pd.read_csv(io.BytesIO(response.content))
 
 
-def normalize_nifty500(frame: pd.DataFrame) -> pd.DataFrame:
-    required = {"index_name", "symbol", "valid_from", "valid_to"}
+def normalize_nifty500(
+    frame: pd.DataFrame,
+    cutoff: str = "2026-03-30",
+) -> pd.DataFrame:
+    required = {"index_name", "symbol", "valid_from", "valid_to", "source", "source_url", "notes"}
     if not required.issubset(frame.columns):
         raise ValueError("source must contain index_name,symbol,valid_from,valid_to")
     result = frame.loc[
         frame["index_name"].astype(str).str.strip().str.casefold() == "nifty 500",
-        ["symbol", "valid_from", "valid_to"],
+        ["symbol", "valid_from", "valid_to", "source", "source_url", "notes"],
     ].copy()
     if result.empty:
         raise ValueError("source contains no Nifty 500 membership rows")
     result["symbol"] = result["symbol"].astype(str).str.strip()
-    result["effective_from"] = pd.to_datetime(result["valid_from"], errors="raise").dt.date
-    result["effective_to"] = pd.to_datetime(result["valid_to"], errors="coerce").dt.date
-    result = result[["symbol", "effective_from", "effective_to"]]
+    cutoff_date = pd.Timestamp(cutoff).date()
+    result["effective_from"] = pd.to_datetime(
+        result["valid_from"], errors="raise"
+    ).dt.date
+    result["effective_to"] = pd.to_datetime(
+        result["valid_to"], errors="coerce"
+    ).dt.date.map(lambda value: value if pd.notna(value) else None)
+    result = result[result["effective_from"] <= cutoff_date].copy()
+    result = result[
+        result["effective_to"].map(
+            lambda value: value is None or value > result["effective_from"].iloc[0]
+        )
+    ]
+    result = result[
+        ["symbol", "effective_from", "effective_to", "source", "source_url", "notes"]
+    ]
     result = result.drop_duplicates().sort_values(["symbol", "effective_from"])
     for symbol, part in result.groupby("symbol", sort=False):
         previous_end = None
@@ -49,6 +65,7 @@ def normalize_nifty500(frame: pd.DataFrame) -> pd.DataFrame:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--cutoff", default="2026-03-30")
     parser.add_argument("--output", default="data/raw/nifty500_membership.csv")
     args = parser.parse_args()
 
@@ -56,12 +73,13 @@ def main() -> None:
     output = root / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    frame = normalize_nifty500(load_source())
+    frame = normalize_nifty500(load_source(), cutoff=args.cutoff)
     frame.to_csv(output, index=False)
     print(f"rows={len(frame)}")
     print(f"symbols={frame['symbol'].nunique()}")
     print(f"effective_from={frame['effective_from'].min()}")
-    print(f"effective_to={frame['effective_to'].max()}")
+    print(f"effective_to={frame['effective_to'].dropna().max()}")
+    print(f"source_cutoff={args.cutoff}")
     print(f"output={output}")
 
 

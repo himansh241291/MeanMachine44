@@ -68,9 +68,11 @@ The membership source, coverage dates, methodology, and any known gaps should be
 
 The current point-in-time NIFTY 500 research source is the public `aditya-jha/nse-historical-membership` dataset, pinned by the MeanMachine44 importer to commit `0e9f58c4d457faf0e7ad3db4f4c1449e697e23e0`.
 
-Its documentation states that index membership is derived from public NSE Indices press releases/circulars, with high-confidence coverage from 2017 onward and clean cardinality from 2018 onward. It also documents pre-2018 walk-back drift.
+Its documentation states that index membership is derived from public NSE Indices press releases/circulars, with high-confidence coverage from 2017 onward and clean cardinality from 2018 onward. It also documents pre-2018 walk-back drift and inferred snapshot records.
 
-This dataset is used only to model the historical NIFTY 500 universe; it does not define any MA44 strategy rule.
+For the first PIT experiment, MeanMachine44 uses a conservative source cutoff of **2026-03-30**. Records beginning after that date are excluded so inferred snapshot records beginning 2026-03-31 cannot overlap the press-release interval ending 2026-05-12 for symbols such as GSPL.
+
+The imported membership file retains the source, source URL, and notes fields for auditability. This dataset is used only to model the historical NIFTY 500 universe; it does not define any MA44 strategy rule.
 
 
 ## Research cutoff
