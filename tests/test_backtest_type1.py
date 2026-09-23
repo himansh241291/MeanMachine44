@@ -64,3 +64,8 @@ def test_backtest_keeps_price_history_for_indicator_warmup():
         universe=universe,
     )
     assert len(result) == 3
+
+
+def test_backtest_end_cutoff_limits_future_trigger_and_exit_search():
+    result = backtest(frame(), "ma_touch_reclaim", horizon=20, end="2026-02-20")
+    assert result == []
