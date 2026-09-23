@@ -15,6 +15,10 @@ def _parse_time(value) -> datetime:
     return datetime.fromisoformat(str(value))
 
 
+def _field(bar, name: str):
+    return getattr(bar, name) if hasattr(bar, name) else bar[name]
+
+
 def _stats(values: list[float]) -> tuple[float | None, float | None]:
     if not values:
         return None, None
@@ -34,10 +38,15 @@ def audit_execution(rows: list[dict], bars: list[object]) -> list[dict]:
 
     groups = defaultdict(lambda: {
         "trades": 0,
+        "unresolved_trades": 0,
         "missing_trigger_bar": 0,
         "missing_exit_bar": 0,
         "entry_gaps": [],
         "exit_gaps": [],
+        "trigger_gap_stops": 0,
+        "trigger_gap_targets": 0,
+        "trigger_gap_both": 0,
+        "entry_gap_cross_target": 0,
     })
 
     for row in rows:
@@ -49,28 +58,44 @@ def audit_execution(rows: list[dict], bars: list[object]) -> list[dict]:
         if _present(row.get("trigger_date")):
             trigger = lookup.get((row["symbol"], _parse_time(row["trigger_date"])))
 
-        exit_bar = None
-        if _present(row.get("exit_date")):
-            exit_bar = lookup.get((row["symbol"], _parse_time(row["exit_date"])))
-
+        outcome = row.get("outcome")
         if trigger is None:
             group["missing_trigger_bar"] += 1
         else:
             entry = float(row["entry"])
-            open_price = float(trigger.open if hasattr(trigger, "open") else trigger["open"])
+            stop = float(row["stop"])
+            target = float(row["target"])
+            open_price = float(_field(trigger, "open"))
+            high = float(_field(trigger, "high"))
+            low = float(_field(trigger, "low"))
+
             if open_price > entry:
                 group["entry_gaps"].append((open_price - entry) / entry * 10_000)
+                gap_stop = low <= stop
+                gap_target = high >= target
+                group["trigger_gap_stops"] += int(gap_stop)
+                group["trigger_gap_targets"] += int(gap_target)
+                group["trigger_gap_both"] += int(gap_stop and gap_target)
+                group["entry_gap_cross_target"] += int(open_price >= target)
 
+        if outcome not in {"STOP", "TARGET"}:
+            group["unresolved_trades"] += 1
+            continue
+
+        if not _present(row.get("exit_date")):
+            group["missing_exit_bar"] += 1
+            continue
+
+        exit_bar = lookup.get((row["symbol"], _parse_time(row["exit_date"])))
         if exit_bar is None:
             group["missing_exit_bar"] += 1
-        else:
-            open_price = float(exit_bar.open if hasattr(exit_bar, "open") else exit_bar["open"])
-            outcome = row.get("outcome")
-            if outcome in {"STOP", "TARGET"}:
-                reference = float(row["stop"] if outcome == "STOP" else row["target"])
-                through = open_price < reference if outcome == "STOP" else open_price > reference
-                if through:
-                    group["exit_gaps"].append(abs(open_price - reference) / reference * 10_000)
+            continue
+
+        open_price = float(_field(exit_bar, "open"))
+        reference = float(row["stop"] if outcome == "STOP" else row["target"])
+        through = open_price < reference if outcome == "STOP" else open_price > reference
+        if through:
+            group["exit_gaps"].append(abs(open_price - reference) / reference * 10_000)
 
     results = []
     for (variant, target), group in sorted(groups.items()):
@@ -80,12 +105,17 @@ def audit_execution(rows: list[dict], bars: list[object]) -> list[dict]:
             "variant": variant,
             "target_multiple": target,
             "trades": group["trades"],
+            "unresolved_trades": group["unresolved_trades"],
             "missing_trigger_bar": group["missing_trigger_bar"],
             "missing_exit_bar": group["missing_exit_bar"],
             "entry_gap_count": len(group["entry_gaps"]),
             "entry_gap_pct": len(group["entry_gaps"]) / group["trades"] * 100,
             "entry_gap_median_bps": entry_median,
             "entry_gap_p95_bps": entry_p95,
+            "trigger_gap_stop_touch_count": group["trigger_gap_stops"],
+            "trigger_gap_target_touch_count": group["trigger_gap_targets"],
+            "trigger_gap_both_count": group["trigger_gap_both"],
+            "entry_gap_cross_target_count": group["entry_gap_cross_target"],
             "exit_gap_count": len(group["exit_gaps"]),
             "exit_gap_pct": len(group["exit_gaps"]) / group["trades"] * 100,
             "exit_gap_median_bps": exit_median,

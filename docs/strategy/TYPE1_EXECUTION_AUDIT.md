@@ -8,7 +8,7 @@ It does not change strategy rules or backtest results.
 
 For a trigger bar, an entry gap is counted when the bar opens above the setup high used as the entry reference. The audit reports count, percentage, median gap, and 95th-percentile gap in basis points.
 
-This identifies cases where a stop-style entry at the setup high could not be assumed to fill at that exact price on a daily bar.
+For gap-open trigger bars, the audit also reports whether the same bar touches the modeled stop or target, whether both are touched, and whether the open is already at or above the target. These cases matter because a long position is active from the open under a gap-aware entry model, while daily OHLC cannot determine stop-versus-target order when both levels are touched.
 
 ## Exit gap
 
@@ -18,9 +18,11 @@ For a TARGET outcome, an exit gap is counted when the exit bar opens above the t
 
 The audit reports the size of the price gap through the reference in basis points.
 
-## Missing bars
+## Unresolved and missing bars
 
-Missing trigger or exit bars are reported rather than silently inferred.
+Trades without a STOP or TARGET outcome are counted separately as unresolved trades and are not treated as missing exit bars.
+
+A resolved trade with no matching exit-date bar is counted as a missing exit bar.
 
 ## Important boundary
 
