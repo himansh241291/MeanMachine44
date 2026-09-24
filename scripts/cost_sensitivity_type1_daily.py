@@ -22,12 +22,22 @@ def main() -> None:
     parser.add_argument("--risk-per-trade", type=float, default=0.01)
     parser.add_argument("--max-open-positions", type=int, default=10)
     parser.add_argument("--max-position-pct", type=float, default=0.20)
+    parser.add_argument("--start")
+    parser.add_argument("--end")
     parser.add_argument("--output", default="data/output/type1_cost_sensitivity.csv")
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[1]
     trades = pd.read_csv(root / args.trades)
     bars = load_csv(root / args.market)
+    start = pd.Timestamp(args.start, tz="UTC") if args.start else None
+    end = pd.Timestamp(args.end, tz="UTC") if args.end else None
+    if start is not None or end is not None:
+        bars = [
+            bar for bar in bars
+            if (start is None or bar.timestamp >= start)
+            and (end is None or bar.timestamp <= end)
+        ]
 
     config = DailyPortfolioConfig(
         initial_capital=args.initial_capital,
