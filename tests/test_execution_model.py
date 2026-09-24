@@ -56,3 +56,12 @@ def test_daily_portfolio_honors_gap_aware_fills():
     assert result["trades"][0]["entry_fill"] == 105.0
     assert result["trades"][0]["exit_fill"] == 110.0
     assert result["final_equity"] == pytest.approx(10030.0)
+
+
+def test_gap_aware_execution_records_executed_r():
+    result = apply_gap_aware_execution([row()], [
+        MarketBar(datetime(2026, 1, 2, tzinfo=timezone.utc), "TEST", "1d", 105, 108, 101, 107),
+        MarketBar(datetime(2026, 1, 4, tzinfo=timezone.utc), "TEST", "1d", 106, 111, 104, 108),
+    ])[0]
+    assert result["r"] == 1.0
+    assert result["executed_r"] == pytest.approx(0.5)
