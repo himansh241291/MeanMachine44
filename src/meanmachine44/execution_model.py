@@ -23,6 +23,24 @@ def _lookup(bars: list[object]) -> dict[tuple[str, datetime], object]:
         result[(symbol, timestamp)] = bar
     return result
 
+def _set_executed_r(row: dict) -> None:
+    entry = row.get("entry_fill")
+    exit_price = row.get("exit_fill")
+    stop = row.get("stop")
+    if (
+        row.get("outcome") in {"STOP", "TARGET"}
+        and entry is not None
+        and exit_price is not None
+        and stop is not None
+        and float(entry) > float(stop)
+    ):
+        row["executed_r"] = (
+            float(exit_price) - float(entry)
+        ) / (float(entry) - float(stop))
+    else:
+        row["executed_r"] = None
+
+
 def apply_gap_aware_execution(rows: list[dict], bars: list[object]) -> list[dict]:
     lookup = _lookup(bars)
     output = []
@@ -34,6 +52,7 @@ def apply_gap_aware_execution(rows: list[dict], bars: list[object]) -> list[dict
         row["execution_status"] = "UNRESOLVED"
         row["entry_fill"] = None
         row["exit_fill"] = None
+        row["executed_r"] = None
         row["trigger_gap"] = False
         row["exit_gap"] = False
         trigger_date = source.get("trigger_date")
@@ -69,6 +88,7 @@ def apply_gap_aware_execution(rows: list[dict], bars: list[object]) -> list[dict
                 row["exit_date"] = trigger_date
                 row["exit_fill"] = trigger_open if trigger_open >= target else target
                 row["execution_status"] = "TRIGGER_TARGET"
+                _set_executed_r(row)
                 output.append(row)
                 continue
             if stop_touch:
@@ -76,6 +96,7 @@ def apply_gap_aware_execution(rows: list[dict], bars: list[object]) -> list[dict
                 row["exit_date"] = trigger_date
                 row["exit_fill"] = stop
                 row["execution_status"] = "TRIGGER_STOP"
+                _set_executed_r(row)
                 output.append(row)
                 continue
         outcome = source.get("outcome")
@@ -105,5 +126,6 @@ def apply_gap_aware_execution(rows: list[dict], bars: list[object]) -> list[dict
         row["exit_fill"] = exit_fill
         row["exit_gap"] = exit_fill != reference
         row["execution_status"] = "EXIT_GAP" if row["exit_gap"] else "REFERENCE_FILL"
+        _set_executed_r(row)
         output.append(row)
     return output
