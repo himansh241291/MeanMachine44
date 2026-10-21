@@ -133,3 +133,22 @@ python scripts/retry_historical_membership_prices.py \
 ```
 
 This saves a separate merged OHLC file, leaving the previous dataset unchanged. The retry audit distinguishes recovered symbols from unresolved/no-data requests. Some old symbols are expected to remain unavailable at this provider. The retry does not infer aliases or stitch histories across corporate actions.
+
+
+## Fill batch-download gaps from existing current-constituent prices
+
+Before spending more time retrying every unavailable old ticker, merge the existing current-constituent OHLC file into the expanded historical-symbol file for missing timestamp/symbol/timeframe keys:
+
+```bash
+python scripts/merge_historical_price_fallback.py \
+  --primary data/raw/nifty500_membership_daily_yfinance.csv \
+  --fallback data/raw/nifty500_daily.csv \
+  --start 2017-10-01 \
+  --end 2026-03-30 \
+  --output data/raw/nifty500_membership_daily_merged.csv \
+  --audit-output data/output/historical_price_merge_audit.csv
+```
+
+The existing expanded-history bar wins when the same key exists. Fallback bars only fill missing keys. The merge audit records overlap OHLC mismatches instead of silently replacing one value with another. This should recover gaps for some current constituents whose multi-ticker download failed; it does not restore unavailable delisted securities or resolve old/new symbol aliases.
+
+Run the historical coverage audit against the merged file before deciding what unresolved members require symbol-history research or licensed EOD data. Do not rerun strategy backtests solely because bars were merged; first review coverage and source consistency.
