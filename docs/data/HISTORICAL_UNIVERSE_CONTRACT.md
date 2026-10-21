@@ -116,3 +116,20 @@ python scripts/download_historical_membership_prices.py \
 The end date is exclusive, so `2026-03-31` includes daily bars through March 30. The output is separate from the existing market file. The audit manifest records per-symbol success/no-data/chunk-error status and first/last available dates.
 
 This is only a coverage-recovery attempt. Yahoo Finance may not retain delisted securities or old symbol aliases, and the downloader does not adjust for corporate actions. Re-run `scripts/audit_pit_price_coverage.py` against the candidate file and inspect remaining missing symbols. If material gaps remain, use a licensed historical EOD source that covers discontinued securities; NSE provides an official paid EOD/historical-data channel (see https://www.nseindia.com/static/market-data/eod-historical-data-subscription). The strategy must not be re-evaluated on the candidate file until its coverage and adjustment limitations are reviewed.
+
+
+## Retry missing historical-symbol downloads
+
+After the first pass, retry only symbols whose status is not `OK`, making one ticker request at a time to reduce batch-related failures:
+
+```bash
+python scripts/retry_historical_membership_prices.py \
+  --market data/raw/nifty500_membership_daily_yfinance.csv \
+  --audit data/output/historical_membership_download_audit.csv \
+  --start 2017-10-01 \
+  --end 2026-03-31 \
+  --output data/raw/nifty500_membership_daily_yfinance_retry.csv \
+  --retry-audit data/output/historical_membership_download_retry_audit.csv
+```
+
+This saves a separate merged OHLC file, leaving the previous dataset unchanged. The retry audit distinguishes recovered symbols from unresolved/no-data requests. Some old symbols are expected to remain unavailable at this provider. The retry does not infer aliases or stitch histories across corporate actions.
