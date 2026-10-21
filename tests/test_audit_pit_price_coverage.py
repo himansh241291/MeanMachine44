@@ -10,8 +10,8 @@ from scripts.audit_pit_price_coverage import yearly_coverage
 def test_yearly_coverage_reports_missing_historical_prices():
     universe = HistoricalUniverse(
         (
-            MembershipInterval("AAA", date(2018, 1, 1), date(2020, 1, 1)),
-            MembershipInterval("BBB", date(2018, 1, 1), date(2020, 1, 1)),
+            MembershipInterval("AAA", date(2018, 1, 1), date(2019, 1, 1)),
+            MembershipInterval("BBB", date(2018, 1, 1), date(2019, 1, 1)),
             MembershipInterval("CCC", date(2019, 1, 1), None),
         )
     )
