@@ -156,7 +156,7 @@ def main() -> None:
     merged.to_csv(output_path, index=False)
     pd.DataFrame(retry_rows).to_csv(retry_audit_path, index=False)
 
-    print(f"recovered_symbols={merged['symbol'].nunique() - base['symbol'].nunique() if len(base) else merged['symbol'].nunique()}")
+    print(f"recovered_symbols={sum(row['status'] == 'RECOVERED' for row in retry_rows)}")
     print(f"merged_symbols={merged['symbol'].nunique()}")
     print(f"merged_rows={len(merged)}")
     print(f"data_output={output_path}")
