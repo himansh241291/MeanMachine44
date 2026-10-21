@@ -7,10 +7,16 @@ from pathlib import Path
 import pandas as pd
 import yfinance as yf
 
-from scripts.download_historical_membership_prices import (
-    OUTPUT_COLUMNS,
-    extract_symbol_bars,
-)
+try:
+    from download_historical_membership_prices import (
+        OUTPUT_COLUMNS,
+        extract_symbol_bars,
+    )
+except ModuleNotFoundError:
+    from scripts.download_historical_membership_prices import (
+        OUTPUT_COLUMNS,
+        extract_symbol_bars,
+    )
 
 
 def missing_symbols(audit: pd.DataFrame) -> list[str]:
