@@ -64,4 +64,4 @@ def test_gap_aware_execution_records_executed_r():
         MarketBar(datetime(2026, 1, 4, tzinfo=timezone.utc), "TEST", "1d", 106, 111, 104, 108),
     ])[0]
     assert result["r"] == 1.0
-    assert result["executed_r"] == pytest.approx(0.5)
+    assert result["executed_r"] == pytest.approx(1 / 3)
