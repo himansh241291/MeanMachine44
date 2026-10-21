@@ -78,3 +78,23 @@ The imported membership file retains the source, source URL, and notes fields fo
 ## Research cutoff
 
 The daily portfolio and cost-sensitivity CLIs accept optional `--start` and `--end` UTC timestamps. Use the same cutoff as the universe-history coverage so the equity curve does not extend beyond the point-in-time membership experiment.
+
+
+## Critical price-history coverage limitation
+
+The historical membership CSV does **not** by itself make a backtest fully point-in-time. The current `scripts/download_nifty500.py` gets the symbol list from the current NIFTY 500 constituents endpoint and downloads daily history only for that list. Applying historical membership to those bars cannot restore history for removed, merged, or delisted companies whose symbols are absent from the OHLC file. Results from this combination therefore retain universe survivorship/coverage bias and must not be described as a complete point-in-time NIFTY 500 backtest.
+
+Audit coverage before interpreting the PIT results:
+
+```bash
+python scripts/audit_pit_price_coverage.py \
+  --market data/raw/nifty500_daily.csv \
+  --membership data/raw/nifty500_membership.csv \
+  --start 2018-01-01 \
+  --end 2026-03-30 \
+  --output data/output/pit_price_coverage.csv
+```
+
+The audit reports, per year, how many membership-history symbols were active, how many had price bars in that period, and how many lack price data entirely in the supplied file. It uses exact symbol matches only; it does not resolve aliases, corporate actions, or price adjustments.
+
+The next data requirement is a historical OHLC source that includes the actual constituents throughout the evaluation period, including constituents no longer in today's index, with documented delisting/renaming and corporate-action handling. Do not rerun or optimize the MA44 strategy until this coverage issue has been measured and a data-source plan is recorded.
