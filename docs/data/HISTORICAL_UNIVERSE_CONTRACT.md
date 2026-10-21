@@ -98,3 +98,21 @@ python scripts/audit_pit_price_coverage.py \
 The audit reports, per year, how many membership-history symbols were active, how many had price bars in that period, and how many lack price data entirely in the supplied file. It uses exact symbol matches only; it does not resolve aliases, corporate actions, or price adjustments.
 
 The next data requirement is a historical OHLC source that includes the actual constituents throughout the evaluation period, including constituents no longer in today's index, with documented delisting/renaming and corporate-action handling. Do not rerun or optimize the MA44 strategy until this coverage issue has been measured and a data-source plan is recorded.
+
+
+## Historical-symbol OHLC recovery attempt
+
+The current-member downloader does not request history for symbols that are no longer current constituents. A separate first-pass downloader can request each distinct symbol in the historical membership file from Yahoo Finance:
+
+```bash
+python scripts/download_historical_membership_prices.py \
+  --membership data/raw/nifty500_membership.csv \
+  --start 2017-10-01 \
+  --end 2026-03-31 \
+  --output data/raw/nifty500_membership_daily_yfinance.csv \
+  --audit-output data/output/historical_membership_download_audit.csv
+```
+
+The end date is exclusive, so `2026-03-31` includes daily bars through March 30. The output is separate from the existing market file. The audit manifest records per-symbol success/no-data/chunk-error status and first/last available dates.
+
+This is only a coverage-recovery attempt. Yahoo Finance may not retain delisted securities or old symbol aliases, and the downloader does not adjust for corporate actions. Re-run `scripts/audit_pit_price_coverage.py` against the candidate file and inspect remaining missing symbols. If material gaps remain, use a licensed historical EOD source that covers discontinued securities; NSE provides an official paid EOD/historical-data channel (see https://www.nseindia.com/static/market-data/eod-historical-data-subscription). The strategy must not be re-evaluated on the candidate file until its coverage and adjustment limitations are reviewed.
